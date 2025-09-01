@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: bcfy-stpt
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/mspt_db
+    username: root
+    password: 1234
