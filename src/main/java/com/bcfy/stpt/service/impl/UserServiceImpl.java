@@ -9,6 +9,7 @@ import com.bcfy.stpt.exception.BusinessException;
 import com.bcfy.stpt.mapper.UserMapper;
 import com.bcfy.stpt.model.dto.user.UserQueryRequest;
 import com.bcfy.stpt.model.entity.User;
+import com.bcfy.stpt.model.enums.UserRoleEnum;
 import com.bcfy.stpt.model.vo.LoginUserVO;
 import com.bcfy.stpt.model.vo.UserVO;
 import com.bcfy.stpt.service.UserService;
@@ -198,5 +199,37 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
                 sortField);
         return queryWrapper;
+    }
+
+
+    /**
+     * 查看 用户 是否是管理员
+     * @param request
+     * @return
+     */
+    @Override
+    public boolean isAdmin(HttpServletRequest request) {
+        // 仅管理员可查询
+        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+        User user = (User) userObj;
+        return isAdmin(user);
+    }
+
+    @Override
+    public boolean isAdmin(User user) {
+        return user != null && UserRoleEnum.ADMIN.getValue().equals(user.getUserRole());
+    }
+
+    @Override
+    public User getLoginUserPermitNull(HttpServletRequest request) {
+        // 先判断是否已登录
+        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+        User currentUser = (User) userObj;
+        if (currentUser == null || currentUser.getId() == null) {
+            return null;
+        }
+//         从数据库查询（追求性能的话可以注释，直接走缓存）
+        long userId = currentUser.getId();
+        return this.getById(userId);
     }
 }
