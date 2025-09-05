@@ -6,7 +6,6 @@ import com.bcfy.stpt.common.BaseResponse;
 import com.bcfy.stpt.common.DeleteRequest;
 import com.bcfy.stpt.common.ErrorCode;
 import com.bcfy.stpt.common.ResultUtils;
-import com.bcfy.stpt.constant.UserConstant;
 import com.bcfy.stpt.exception.BusinessException;
 import com.bcfy.stpt.exception.ThrowUtils;
 import com.bcfy.stpt.model.dto.question.QuestionQueryRequest;
@@ -22,6 +21,7 @@ import com.bcfy.stpt.model.vo.QuestionVO;
 import com.bcfy.stpt.service.QuestionBankService;
 import com.bcfy.stpt.service.QuestionService;
 import com.bcfy.stpt.service.UserService;
+import com.jd.platform.hotkey.client.callback.JdHotKeyStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
@@ -131,6 +131,8 @@ public class QuestionBankController {
     /**
      * 根据 id 获取题库（封装类）
      *
+     * 可以用热key检测
+     *
      * @param questionBankQueryRequest
      * @return
      */
@@ -139,6 +141,18 @@ public class QuestionBankController {
         ThrowUtils.throwIf(questionBankQueryRequest == null, ErrorCode.PARAMS_ERROR);
         Long id = questionBankQueryRequest.getId();
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+
+        // 生成 key
+        String key = "bank_detail_" + id;
+        // 如果是热key
+        if(JdHotKeyStore.isHotKey(key)){
+            // 从本地缓存中获取缓存值
+            log.info("从缓存中获得: {}", key);
+            Object cachedQuestionBankVO = JdHotKeyStore.get(key);
+            if(cachedQuestionBankVO !=null){
+                return ResultUtils.success((QuestionBankVO) cachedQuestionBankVO);
+            }
+        }
 
         // 查询数据库
         QuestionBank questionBank = questionBankService.getById(id);
@@ -157,6 +171,10 @@ public class QuestionBankController {
             Page<QuestionVO> questionVOPage = questionService.getQuestionVOPage(questionPage, request);
             questionBankVO.setQuestionPage(questionVOPage);
         }
+
+        // 如果是热key，设置本地缓存, smartSet方法本身就是只针对热key才会缓存
+        JdHotKeyStore.smartSet(key, questionBankVO);
+
         return ResultUtils.success(questionBankVO);
     }
 

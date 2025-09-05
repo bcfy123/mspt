@@ -15,6 +15,7 @@ import com.bcfy.stpt.model.vo.UserVO;
 import com.bcfy.stpt.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
@@ -39,6 +40,9 @@ public class UserController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private RedissonClient redissonClient;
 
     /**
      * 用户注册
@@ -297,5 +301,46 @@ public class UserController {
         userVOPage.setRecords(userVO);
         return ResultUtils.success(userVOPage);
     }
+
+    /**
+     * 添加用户签到记录
+     * @param request
+     * @return
+     */
+    @PostMapping("/add/sign_in")
+    public BaseResponse<Boolean> addUserSignIn(HttpServletRequest request){
+        User loginUser = userService.getLoginUser(request);
+        boolean result = userService.addUserSignIn(loginUser.getId());
+        return ResultUtils.success(result);
+    }
+
+
+    /**
+     * 获取用户某一年的签到记录，返回的是表示签到是第几天的List
+     *
+     */
+    @GetMapping("/get/sign_in")
+    public BaseResponse<List<Integer>> getUserSignInRecord(Integer year, HttpServletRequest request){
+        // 必须要登录才能获取
+        User loginUser = userService.getLoginUser(request);
+        List<Integer> userSignInRecord = userService.getUserSignInRecord(loginUser.getId(), year);
+        return ResultUtils.success(userSignInRecord);
+    }
+
+//    /**
+//     * 获取用户签到记录 (原始)
+//     *
+//     * @param year    年份（为空表示当前年份）
+//     * @param request
+//     * @return 签到记录映射
+//     */
+//    @GetMapping("/get/sign_in")
+//    public BaseResponse<Map<LocalDate, Boolean>> getUserSignInRecord(Integer year, HttpServletRequest request) {
+//        // 必须要登录才能获取
+//        User loginUser = userService.getLoginUser(request);
+//        Map<LocalDate, Boolean> userSignInRecord = userService.getUserSignInRecord(loginUser.getId(), year);
+//        return ResultUtils.success(userSignInRecord);
+//    }
+
 
 }

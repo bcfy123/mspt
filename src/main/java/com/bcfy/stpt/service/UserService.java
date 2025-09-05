@@ -100,4 +100,20 @@ public interface UserService extends IService<User>  {
      * @return
      */
     User getLoginUserPermitNull(HttpServletRequest request);
+
+
+    /**
+     * 添加用户签到记录
+     * @param id
+     * @return
+     */
+    boolean addUserSignIn(Long id);
+
+    /**
+     * 根据用户id获取该用户某年的 签到记录
+     * @param id
+     * @param year
+     * @return
+     */
+    List<Integer> getUserSignInRecord(Long id, Integer year);
 }

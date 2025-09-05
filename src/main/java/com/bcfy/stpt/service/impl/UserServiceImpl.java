@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.bcfy.stpt.common.ErrorCode;
 import com.bcfy.stpt.constant.CommonConstant;
+import com.bcfy.stpt.constant.RedisConstant;
 import com.bcfy.stpt.exception.BusinessException;
 import com.bcfy.stpt.mapper.UserMapper;
 import com.bcfy.stpt.model.dto.user.UserQueryRequest;
@@ -16,13 +17,17 @@ import com.bcfy.stpt.service.UserService;
 import com.bcfy.stpt.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RBitSet;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,6 +38,13 @@ import static com.bcfy.stpt.constant.UserConstant.USER_LOGIN_STATE;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
     public static final String SALT = "bcfy";
+
+    @Resource
+    private RedissonClient redissonClient;
+
+    public UserServiceImpl(RedissonClient redissonClient) {
+        this.redissonClient = redissonClient;
+    }
 
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
@@ -84,8 +96,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 2. 加密
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("user_account", userAccount);
-        queryWrapper.eq("user_password", encryptPassword);
+        queryWrapper.eq("userAccount", userAccount);
+        queryWrapper.eq("userPassword", encryptPassword);
         User user = this.baseMapper.selectOne(queryWrapper);
         if(user == null) {
             log.info("user login failed, userAccount cannot match userPassword");
@@ -232,4 +244,76 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         long userId = currentUser.getId();
         return this.getById(userId);
     }
+
+    @Override
+    public boolean addUserSignIn(Long id) {
+        LocalDate now = LocalDate.now();
+        String userSignInRedisKey = RedisConstant.getUserSignInRedisKey(now.getYear(), id);
+        RBitSet bitSet = redissonClient.getBitSet(userSignInRedisKey);
+        int offset = now.getDayOfYear();
+        if(!bitSet.get(offset)){
+            bitSet.set(offset, true);
+        }
+        return true;
+    }
+
+
+    /**
+     * 返回 userid 在 year 的 刷题记录
+     * @param userId
+     * @param year
+     * @return
+     */
+    @Override
+    public List<Integer> getUserSignInRecord(Long userId, Integer year) {
+
+
+        if (year == null) {
+            LocalDate date = LocalDate.now();
+            year = date.getYear();
+        }
+        String key = RedisConstant.getUserSignInRedisKey(year, userId);
+        // 获取 Redis 的 BitMap
+        RBitSet signInBitSet = redissonClient.getBitSet(key);
+        // 加载 BitSet 到内存中，避免后续读取时发送多次请求
+        BitSet bitSet = signInBitSet.asBitSet();
+        // 统计签到的日期
+        List<Integer> dayList = new ArrayList<>();
+        // 从索引 0 开始查找下一个被设置为 1 的位
+        int index = bitSet.nextSetBit(0);
+        while (index >= 0) {
+            dayList.add(index);
+            // 继续查找下一个被设置为 1 的位
+            index = bitSet.nextSetBit(index + 1);
+        }
+        return dayList;
+    }
+
+    /**
+     * 原始的  返回用户在某一年的 刷题记录
+     */
+//    @Override
+//    public Map<LocalDate, Boolean> getUserSignInRecord(Long userId, Integer year) {
+//        if (year == null) {
+//            LocalDate date = LocalDate.now();
+//            year = date.getYear();
+//        }
+//        String key = RedisConstant.getUserSignInRedisKey(year, userId);
+//        RBitSet signInBitSet = redissonClient.getBitSet(key);
+//        // LinkedHashMap 保证有序
+//        Map<LocalDate, Boolean> result = new LinkedHashMap<>();
+//        // 获取当前年份的总天数
+//        int totalDays = Year.of(year).length();
+//        // 依次获取每一天的签到状态
+//        for (int dayOfYear = 1; dayOfYear <= totalDays; dayOfYear++) {
+//            // 获取 key：当前日期
+//            LocalDate currentDate = LocalDate.ofYearDay(year, dayOfYear);
+//            // 获取 value：当天是否有刷题
+//            boolean hasRecord = signInBitSet.get(dayOfYear);
+//            // 将结果放入 map
+//            result.put(currentDate, hasRecord);
+//        }
+//        return result;
+//    }
+
 }

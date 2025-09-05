@@ -1,6 +1,5 @@
 package com.bcfy.stpt.controller;
 
-import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.bcfy.stpt.annotation.AuthCheck;
@@ -8,13 +7,9 @@ import com.bcfy.stpt.common.BaseResponse;
 import com.bcfy.stpt.common.DeleteRequest;
 import com.bcfy.stpt.common.ErrorCode;
 import com.bcfy.stpt.common.ResultUtils;
-import com.bcfy.stpt.constant.UserConstant;
 import com.bcfy.stpt.exception.BusinessException;
 import com.bcfy.stpt.exception.ThrowUtils;
-import com.bcfy.stpt.model.dto.question.QuestionAddRequest;
-import com.bcfy.stpt.model.dto.question.QuestionEditRequest;
-import com.bcfy.stpt.model.dto.question.QuestionQueryRequest;
-import com.bcfy.stpt.model.dto.question.QuestionUpdateRequest;
+import com.bcfy.stpt.model.dto.question.*;
 import com.bcfy.stpt.model.entity.Question;
 import com.bcfy.stpt.model.entity.User;
 import com.bcfy.stpt.model.vo.QuestionVO;
@@ -27,7 +22,6 @@ import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -249,4 +243,35 @@ public class QuestionController {
         return ResultUtils.success(true);
     }
 
+
+    /**
+     * 从ES 里查询，题目 分页
+     * @param questionQueryRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/search/page/vo")
+    public BaseResponse<Page<QuestionVO>> searchQuestionVOByPage(@RequestBody QuestionQueryRequest questionQueryRequest,
+                                                                 HttpServletRequest request) {
+        long size = questionQueryRequest.getPageSize();
+        // 限制爬虫
+        ThrowUtils.throwIf(size > 200, ErrorCode.PARAMS_ERROR);
+        Page<Question> questionPage = questionService.searchFromEs(questionQueryRequest);
+        return ResultUtils.success(questionService.getQuestionVOPage(questionPage, request));
+    }
+
+
+
+    /**
+     * 删除 Question
+     * @param questionBatchDeleteRequest
+     * @return
+     */
+    @PostMapping("/delete/batch")
+    @AuthCheck(mustRole = "admin")
+    public BaseResponse<Boolean> batchDeleteQuestions(@RequestBody QuestionBatchDeleteRequest questionBatchDeleteRequest) {
+        ThrowUtils.throwIf(questionBatchDeleteRequest == null, ErrorCode.PARAMS_ERROR);
+        questionService.batchDeleteQuestions(questionBatchDeleteRequest.getQuestionIdList());
+        return ResultUtils.success(true);
+    }
 }

@@ -8,7 +8,6 @@ import com.bcfy.stpt.common.BaseResponse;
 import com.bcfy.stpt.common.DeleteRequest;
 import com.bcfy.stpt.common.ErrorCode;
 import com.bcfy.stpt.common.ResultUtils;
-import com.bcfy.stpt.constant.UserConstant;
 import com.bcfy.stpt.exception.BusinessException;
 import com.bcfy.stpt.exception.ThrowUtils;
 import com.bcfy.stpt.model.dto.questionBankQuestion.*;
@@ -227,6 +226,50 @@ public class QuestionBankQuestionController {
                 .eq(QuestionBankQuestion::getQuestionId, questionId);
         boolean result = questionBankQuestionService.remove(lambdaQueryWrapper);
         return ResultUtils.success(result);
+    }
+
+    /**
+     * 批量添加题目到题库（仅管理员可用）
+     *
+     * @param questionBankQuestionBatchAddRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/add/batch")
+    @AuthCheck(mustRole = "admin")
+    public BaseResponse<Boolean> batchAddQuestionsToBank(
+            @RequestBody QuestionBankQuestionBatchAddRequest questionBankQuestionBatchAddRequest,
+            HttpServletRequest request
+    ) {
+        ThrowUtils.throwIf(questionBankQuestionBatchAddRequest == null, ErrorCode.PARAMS_ERROR);
+        // 获取当前登录user
+        User loginUser = userService.getLoginUser(request);
+        // 获取题库 id 和 题目id list
+        Long questionBankId = questionBankQuestionBatchAddRequest.getQuestionBankId();
+        List<Long> questionIdList = questionBankQuestionBatchAddRequest.getQuestionIdList();
+        questionBankQuestionService.batchAddQuestionsToBank(questionIdList, questionBankId, loginUser);
+        return ResultUtils.success(true);
+    }
+
+
+    /**
+     * 批量从题库移除题目（仅管理员可用）
+     *
+     * @param questionBankQuestionBatchRemoveRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/remove/batch")
+    @AuthCheck(mustRole = "admin")
+    public BaseResponse<Boolean> batchRemoveQuestionsFromBank(
+            @RequestBody QuestionBankQuestionBatchRemoveRequest questionBankQuestionBatchRemoveRequest,
+            HttpServletRequest request
+    ) {
+        ThrowUtils.throwIf(questionBankQuestionBatchRemoveRequest == null, ErrorCode.PARAMS_ERROR);
+        Long questionBankId = questionBankQuestionBatchRemoveRequest.getQuestionBankId();
+        List<Long> questionIdList = questionBankQuestionBatchRemoveRequest.getQuestionIdList();
+        questionBankQuestionService.batchRemoveQuestionsFromBank(questionIdList, questionBankId);
+        return ResultUtils.success(true);
     }
 
 }
